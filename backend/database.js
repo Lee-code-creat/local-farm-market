@@ -1,7 +1,8 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const sqlite3 = require("sqlite3").verbose();
+const path = require("path");
 
-const dbPath = path.join(__dirname, 'market.db');
+// SQLite database file path
+const dbPath = path.join(__dirname, "market.db");
 const db = new sqlite3.Database(dbPath);
 
 // Initialize database schema
@@ -26,6 +27,7 @@ db.serialize(() => {
       image_url TEXT,
       seller_id INTEGER NOT NULL,
       purchase_count INTEGER NOT NULL DEFAULT 0,
+      embedding TEXT,
       FOREIGN KEY (seller_id) REFERENCES users(id)
     )
   `);
@@ -48,7 +50,7 @@ db.serialize(() => {
     )
   `);
 
-  // Purchases: for "who bought what from whom"
+  // Purchases: who bought what from whom
   db.run(`
     CREATE TABLE IF NOT EXISTS purchases (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

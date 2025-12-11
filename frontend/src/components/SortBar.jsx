@@ -1,3 +1,6 @@
+/**
+ * Controls sorting and shows the "boosted" keyword when using similar products.
+ */
 export default function SortBar({
   sortOrder,
   onSortChange,
@@ -7,15 +10,15 @@ export default function SortBar({
   return (
     <div
       style={{
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e5e7eb',
-        marginBottom: '20px',
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        gap: '12px',
+        padding: "12px 16px",
+        borderRadius: "10px",
+        border: "1px solid #e5e7eb",
+        marginBottom: "20px",
+        backgroundColor: "rgba(255, 255, 255, 0.95)",
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: "12px",
       }}
     >
       <label>
@@ -24,10 +27,10 @@ export default function SortBar({
           value={sortOrder}
           onChange={onSortChange}
           style={{
-            marginLeft: '8px',
-            padding: '6px',
-            borderRadius: '4px',
-            border: '1px solid #d1d5db',
+            marginLeft: "8px",
+            padding: "6px",
+            borderRadius: "4px",
+            border: "1px solid #d1d5db",
           }}
         >
           <option value="default">Default (Newest)</option>
@@ -40,23 +43,24 @@ export default function SortBar({
       {focusedKeyword && (
         <div
           style={{
-            fontSize: '12px',
-            color: '#4b5563',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
+            fontSize: "12px",
+            color: "#4b5563",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
           }}
         >
           Boosting products related to: <strong>{focusedKeyword}</strong>
           <button
+            type="button"
             onClick={onClearKeyword}
             style={{
-              padding: '2px 8px',
-              borderRadius: '6px',
-              border: '1px solid #d1d5db',
-              backgroundColor: '#ffffff',
-              cursor: 'pointer',
-              fontSize: '11px',
+              padding: "2px 8px",
+              borderRadius: "6px",
+              border: "1px solid #d1d5db",
+              backgroundColor: "#ffffff",
+              cursor: "pointer",
+              fontSize: "11px",
             }}
           >
             Clear

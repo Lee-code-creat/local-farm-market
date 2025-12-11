@@ -1,757 +1,328 @@
-import { useEffect, useState } from 'react';
-import { API_BASE } from './api';
+import { useState, useEffect, useMemo } from "react";
+import { API_BASE } from "./api";
 
-import AuthPanel from './components/AuthPanel';
-import CreateProductForm from './components/CreateProductForm';
-import ProductList from './components/ProductList';
-import SortBar from './components/SortBar';
-import MessagesPanel from './components/MessagesPanel';
+import AuthPanel from "./components/AuthPanel";
+import ProductList from "./components/ProductList";
+import CreateProductForm from "./components/CreateProductForm";
+import MessagesPanel from "./components/MessagesPanel";
+import SortBar from "./components/SortBar";
 
-function App() {
-  // Auth state
-  const [mode, setMode] = useState('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState('buyer');
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState('');
-  const [authMessage, setAuthMessage] = useState('');
+export default function App() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [token, setToken] = useState("");
 
-  // Current user / token
-  const [token, setToken] = useState(() => localStorage.getItem('token') || '');
-  const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('currentUser');
-    return saved ? JSON.parse(saved) : null;
-  });
-
-  // Products
   const [products, setProducts] = useState([]);
-  const [productsLoading, setProductsLoading] = useState(false);
-  const [sortOrder, setSortOrder] = useState('default');
-  const [focusedKeyword, setFocusedKeyword] = useState('');
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [sortOrder, setSortOrder] = useState("default");
 
-  // New product
-  const [newTitle, setNewTitle] = useState('');
-  const [newDescription, setNewDescription] = useState('');
-  const [newPrice, setNewPrice] = useState('');
-  const [newImageUrl, setNewImageUrl] = useState('');
-  const [newProdLoading, setNewProdLoading] = useState(false);
-  const [newProdError, setNewProdError] = useState('');
-  const [newProdMessage, setNewProdMessage] = useState('');
-
-  // Editing product
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editDescription, setEditDescription] = useState('');
-  const [editPrice, setEditPrice] = useState('');
-  const [editImageUrl, setEditImageUrl] = useState('');
-  const [editLoading, setEditLoading] = useState(false);
-  const [editError, setEditError] = useState('');
-  const [editMessage, setEditMessage] = useState('');
-
-  // Messages
-  const [activeMessageProduct, setActiveMessageProduct] = useState(null);
+  const [activeProduct, setActiveProduct] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [newMessageContent, setNewMessageContent] = useState('');
-  const [messageError, setMessageError] = useState('');
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [messageError, setMessageError] = useState("");
 
-  // Load products on mount
+  const [focusKeyword, setFocusKeyword] = useState("");
+  const [boostList, setBoostList] = useState([]);
+
+  const [editTarget, setEditTarget] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+
   useEffect(() => {
-    fetchProducts(sortOrder);
+    const savedUser = localStorage.getItem("user");
+    const savedToken = localStorage.getItem("token");
+
+    if (savedUser && savedToken) {
+      try {
+        const u = JSON.parse(savedUser);
+        setCurrentUser({
+          id: u.userId,
+          role: u.role,
+          email: u.email,
+        });
+        setToken(savedToken);
+      } catch {}
+    }
   }, []);
 
-  async function fetchProducts(sort = 'default') {
+  useEffect(() => {
+    loadProducts();
+  }, [sortOrder]);
+
+  async function loadProducts() {
+    setLoadingProducts(true);
     try {
-      setProductsLoading(true);
-
-      const params = new URLSearchParams();
-      if (sort && sort !== 'default') {
-        params.append('sort', sort);
-      }
-
-      const url = params.toString()
-        ? `${API_BASE}/api/products?${params.toString()}`
-        : `${API_BASE}/api/products`;
-
-      const res = await fetch(url);
+      const res = await fetch(`${API_BASE}/api/products?sort=${sortOrder}`);
       const data = await res.json();
       setProducts(data);
-    } catch (err) {
-      console.error('Failed to fetch products', err);
     } finally {
-      setProductsLoading(false);
+      setLoadingProducts(false);
     }
   }
 
-  // Login / register
-  async function handleAuthSubmit(e) {
-    e.preventDefault();
-    setAuthError('');
-    setAuthMessage('');
-    setAuthLoading(true);
-
-    try {
-      if (mode === 'register') {
-        const res = await fetch(`${API_BASE}/api/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, role }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          setAuthError(data.message || 'Registration failed');
-        } else {
-          setAuthMessage(
-            'Registration successful. Please log in with this account.'
-          );
-          setMode('login');
-        }
-      } else {
-        const res = await fetch(`${API_BASE}/api/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          setAuthError(data.message || 'Login failed');
-        } else {
-          setAuthMessage('Login successful');
-          setToken(data.token);
-          const userInfo = {
-            email: data.email,
-            role: data.role,
-            id: data.userId,
-          };
-          setCurrentUser(userInfo);
-          localStorage.setItem('token', data.token);
-          localStorage.setItem('currentUser', JSON.stringify(userInfo));
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      setAuthError('Request error. Please try again later.');
-    } finally {
-      setAuthLoading(false);
-    }
+  function handleLogin(user) {
+    setCurrentUser({
+      id: user.userId,
+      role: user.role,
+      email: user.email,
+    });
+    setToken(user.token);
+    localStorage.setItem("token", user.token);
+    localStorage.setItem("user", JSON.stringify(user));
   }
 
   function handleLogout() {
-    setToken('');
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setToken("");
     setCurrentUser(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('currentUser');
-    setAuthMessage('Logged out');
   }
 
-  // Create product
-  async function handleCreateProduct(e) {
-    e.preventDefault();
-    setNewProdError('');
-    setNewProdMessage('');
+  async function handleCreateProduct(form) {
+    const res = await fetch(`${API_BASE}/api/products`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(form),
+    });
 
-    if (!currentUser || currentUser.role !== 'seller') {
-      setNewProdError('You must log in as a seller to create products.');
-      return;
-    }
-    if (!token) {
-      setNewProdError('Missing auth token. Please log in again.');
-      return;
-    }
-    if (!newTitle || !newPrice) {
-      setNewProdError('Title and price are required.');
+    const result = await res.json();
+    if (!res.ok) {
+      alert(result.message);
       return;
     }
 
-    const priceNumber = parseFloat(newPrice);
-    if (Number.isNaN(priceNumber)) {
-      setNewProdError('Price must be a number.');
-      return;
-    }
-
-    try {
-      setNewProdLoading(true);
-      const res = await fetch(`${API_BASE}/api/products`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: newTitle,
-          description: newDescription,
-          price: priceNumber,
-          image_url: newImageUrl,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setNewProdError(data.message || 'Failed to create product.');
-      } else {
-        setNewProdMessage('Product created successfully.');
-        setNewTitle('');
-        setNewDescription('');
-        setNewPrice('');
-        setNewImageUrl('');
-        fetchProducts(sortOrder);
-      }
-    } catch (err) {
-      console.error(err);
-      setNewProdError('Request error. Please try again later.');
-    } finally {
-      setNewProdLoading(false);
-    }
+    loadProducts();
   }
 
-  function handleSortChange(e) {
-    const value = e.target.value;
-    setSortOrder(value);
-    fetchProducts(value);
+  async function handleDeleteProduct(id) {
+    if (!window.confirm("Delete this product?")) return;
+
+    const res = await fetch(`${API_BASE}/api/products/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const result = await res.json();
+    if (!res.ok) {
+      alert(result.message);
+      return;
+    }
+
+    loadProducts();
   }
 
-  function handleFocusKeyword(rawTitle) {
-    const parts = rawTitle.split(' ').filter(Boolean);
-    let keyword = rawTitle;
-    if (parts.length >= 2) {
-      keyword = parts[1];
+  async function handlePurchase(item) {
+    const res = await fetch(`${API_BASE}/api/purchases`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ productId: item.id }),
+    });
+
+    const result = await res.json();
+    if (!res.ok) {
+      alert(result.message);
+      return;
     }
-    setFocusedKeyword(keyword);
+
+    loadProducts();
   }
 
-  let finalProducts = [...products];
-  if (focusedKeyword) {
-    const kw = focusedKeyword.toLowerCase().trim();
-    if (kw.length > 0) {
-      finalProducts.sort((a, b) => {
-        const aMatch =
-          (a.title && a.title.toLowerCase().includes(kw)) ||
-          (a.description && a.description.toLowerCase().includes(kw));
-        const bMatch =
-          (b.title && b.title.toLowerCase().includes(kw)) ||
-          (b.description && b.description.toLowerCase().includes(kw));
-
-        if (aMatch && !bMatch) return -1;
-        if (!aMatch && bMatch) return 1;
-        return 0;
-      });
-    }
-  }
-
-  function startEditProduct(product) {
-    setEditingProduct(product);
-    setEditTitle(product.title || '');
-    setEditDescription(product.description || '');
-    setEditPrice(String(product.price ?? ''));
-    setEditImageUrl(product.image_url || '');
-    setEditError('');
-    setEditMessage('');
-  }
-
-  async function handleUpdateProduct(e) {
-    e.preventDefault();
-    setEditError('');
-    setEditMessage('');
-
-    if (!editingProduct) return;
-
-    if (!currentUser || currentUser.role !== 'seller') {
-      setEditError('You must be a seller to update products.');
-      return;
-    }
-    if (!token) {
-      setEditError('Missing auth token. Please log in again.');
-      return;
-    }
-
-    if (!editTitle || !editPrice) {
-      setEditError('Title and price are required.');
-      return;
-    }
-
-    const priceNumber = parseFloat(editPrice);
-    if (Number.isNaN(priceNumber)) {
-      setEditError('Price must be a number.');
-      return;
-    }
-
-    try {
-      setEditLoading(true);
-      const res = await fetch(
-        `${API_BASE}/api/products/${editingProduct.id}`,
-        {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            title: editTitle,
-            description: editDescription,
-            price: priceNumber,
-            image_url: editImageUrl,
-          }),
-        }
-      );
-
-      const data = await res.json();
-      if (!res.ok) {
-        setEditError(data.message || 'Failed to update product.');
-      } else {
-        setEditMessage('Product updated successfully.');
-        setEditingProduct(null);
-        fetchProducts(sortOrder);
-      }
-    } catch (err) {
-      console.error(err);
-      setEditError('Request error. Please try again later.');
-    } finally {
-      setEditLoading(false);
-    }
-  }
-
-  async function handleDeleteProduct(productId) {
-    if (!currentUser || currentUser.role !== 'seller') {
-      alert('You must log in as a seller to delete products.');
-      return;
-    }
-    if (!token) {
-      alert('Missing auth token. Please log in again.');
-      return;
-    }
-
-    const confirmed = window.confirm('Are you sure you want to delete this product?');
-    if (!confirmed) return;
-
-    try {
-      const res = await fetch(`${API_BASE}/api/products/${productId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.message || 'Failed to delete product.');
-      } else {
-        if (editingProduct && editingProduct.id === productId) {
-          setEditingProduct(null);
-        }
-        fetchProducts(sortOrder);
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Request error. Please try again later.');
-    }
-  }
-
-  async function openMessagesForProduct(product) {
-    if (!currentUser) {
-      alert('Please log in to view messages.');
-      return;
-    }
-
-    setActiveMessageProduct(product);
-    setMessages([]);
-    setNewMessageContent('');
-    setMessageError('');
-    setMessagesLoading(true);
+  async function handleOpenMessages(product) {
+    setActiveProduct(product);
+    setmessages([]);
+    setMessageError("");
+    setLoadingMessages(true);
 
     try {
       const res = await fetch(
         `${API_BASE}/api/messages?productId=${product.id}`,
-        {
-          headers: {
-            Authorization: token ? `Bearer ${token}` : '',
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setMessageError(data.message || 'Failed to load messages.');
-      } else {
-        const data = await res.json();
+      const data = await res.json();
+      if (res.ok) {
         setMessages(data);
+      } else {
+        setMessageError(data.message);
       }
-    } catch (err) {
-      console.error(err);
-      setMessageError('Request error while loading messages.');
-    } finally {
-      setMessagesLoading(false);
+    } catch {
+      setMessageError("Network error");
     }
+
+    setLoadingMessages(false);
   }
 
-  async function handleSendMessage(e) {
-    e.preventDefault();
-
-    if (!currentUser) {
-      setMessageError('Please log in first.');
-      return;
-    }
-    if (!token) {
-      setMessageError('Missing auth token. Please log in again.');
-      return;
-    }
-    if (!activeMessageProduct) {
-      setMessageError('No product selected.');
-      return;
-    }
-    if (!newMessageContent.trim()) {
-      setMessageError('Message content cannot be empty.');
-      return;
-    }
+  async function handleSendMessage(text) {
+    if (!activeProduct) return;
 
     try {
       const res = await fetch(`${API_BASE}/api/messages`, {
-        method: 'POST',
+        method: "POST",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          productId: activeMessageProduct.id,
-          content: newMessageContent.trim(),
+          productId: activeProduct.id,
+          content: text,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        setMessageError(data.message || 'Failed to send message.');
-      } else {
-        setNewMessageContent('');
-        setMessageError('');
-        openMessagesForProduct(activeMessageProduct);
+        setMessageError(data.message);
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      setMessageError('Request error while sending message.');
+
+      handleOpenMessages(activeProduct);
+    } catch {
+      setMessageError("Network error");
     }
   }
 
-  async function handlePurchase(product) {
-    if (!currentUser || currentUser.role !== 'buyer') {
-      alert('You must log in as a buyer to purchase.');
-      return;
-    }
-    if (!token) {
-      alert('Missing auth token. Please log in again.');
-      return;
-    }
+  function handleEditProduct(p) {
+    setEditTarget(p);
+  }
+
+  async function handleSaveEdit(update) {
+    setSavingEdit(true);
 
     try {
-      const res = await fetch(`${API_BASE}/api/purchases`, {
-        method: 'POST',
+      const res = await fetch(`${API_BASE}/api/products/${editTarget.id}`, {
+        method: "PUT",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ productId: product.id }),
+        body: JSON.stringify(update),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.message || 'Purchase failed.');
+        alert(data.message);
       } else {
-        alert('Purchase successful.');
-        fetchProducts(sortOrder);
+        setEditTarget(null);
+        loadProducts();
       }
-    } catch (err) {
-      console.error(err);
-      alert('Request error. Please try again later.');
+    } finally {
+      setSavingEdit(false);
     }
   }
 
-  //Web page structure
+  async function handleFocusSimilar(p) {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/products/similar?productId=${p.id}`
+      );
+      const list = await res.json();
+
+      if (Array.isArray(list)) {
+        setBoostList(list.map((t) => t.id));
+        setFocusKeyword(p.title);
+      }
+    } catch {}
+  }
+
+  function clearBoost() {
+    setBoostList([]);
+    setFocusKeyword("");
+  }
+
+  const finalProducts = useMemo(() => {
+    if (!boostList.length) return products;
+
+    const map = new Map(products.map((p) => [p.id, p]));
+    const boosted = boostList.map((id) => map.get(id)).filter(Boolean);
+    const rest = products.filter((p) => !boostList.includes(p.id));
+
+    return [...boosted, ...rest];
+  }, [products, boostList]);
+
   return (
-    <div
+    <main
       style={{
-        minHeight: '100vh',
-        width: '100vw',
-        overflowX: 'hidden',
-        backgroundImage: 'url("/farm.png")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundAttachment: 'fixed',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'flex-start',
-        padding: '40px 16px',
-        boxSizing: 'border-box',
-        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+        minHeight: "100vh",
+        backgroundImage: "url('/farm.png')",
+        backgroundSize: "cover",
+        padding: "20px",
       }}
     >
       <div
         style={{
-          width: '100%',
-          maxWidth: '900px',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          borderRadius: '18px',
-          padding: '24px',
-          boxShadow: '0 12px 30px rgba(15, 23, 42, 0.25)',
-          backdropFilter: 'blur(8px)',
+          maxWidth: "960px",
+          margin: "0 auto",
+          backgroundColor: "rgba(255,255,255,0.85)",
+          padding: "20px",
+          borderRadius: "12px",
         }}
       >
-        <h1 style={{ fontSize: '40px', marginBottom: '8px', color: '#1f2933' }}>
-          Local Farm Market
-        </h1>
-        <p style={{ color: '#374151', marginBottom: '24px' }}>
-          A small marketplace app connecting local farmers and community buyers
-          (Course Project).
-        </p>
-
-        {/* Status bar */}
-        <div
+        <header
           style={{
-            padding: '12px 16px',
-            borderRadius: '8px',
-            backgroundColor: 'rgba(243, 244, 246, 0.9)',
-            marginBottom: '24px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '12px',
-            flexWrap: 'wrap',
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: "20px",
           }}
         >
-          {currentUser ? (
-            <>
-              <div>
-                <strong>Logged in:</strong> {currentUser.email} (role:{' '}
-                {currentUser.role})
-              </div>
-              <button
-                onClick={handleLogout}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: '#e74c3c',
-                  color: '#fff',
-                }}
-              >
-                Log out
+          <h1>Local Farm Market</h1>
+
+          {currentUser && (
+            <div>
+              {currentUser.email} ({currentUser.role})
+              <button onClick={handleLogout} style={{ marginLeft: "10px" }}>
+                Logout
               </button>
-            </>
-          ) : (
-            <div>Not logged in</div>
+            </div>
           )}
-        </div>
+        </header>
 
-        {/* Auth panel: hidden when logged in */}
         {!currentUser && (
-          <AuthPanel
-            mode={mode}
-            setMode={setMode}
-            email={email}
-            setEmail={setEmail}
-            password={password}
-            setPassword={setPassword}
-            role={role}
-            setRole={setRole}
-            authError={authError}
-            authMessage={authMessage}
-            authLoading={authLoading}
-            onSubmit={handleAuthSubmit}
-          />
+          <AuthPanel onLoginSuccess={handleLogin} />
         )}
 
-        {/* Create product (seller only) */}
-        {currentUser && currentUser.role === 'seller' && (
+        {currentUser && currentUser.role === "seller" && (
           <CreateProductForm
-            newTitle={newTitle}
-            setNewTitle={setNewTitle}
-            newDescription={newDescription}
-            setNewDescription={setNewDescription}
-            newPrice={newPrice}
-            setNewPrice={setNewPrice}
-            newImageUrl={newImageUrl}
-            setNewImageUrl={setNewImageUrl}
-            newProdError={newProdError}
-            newProdMessage={newProdMessage}
-            newProdLoading={newProdLoading}
-            onSubmit={handleCreateProduct}
+            mode={editTarget ? "edit" : "create"}
+            initialData={editTarget}
+            onCreate={handleCreateProduct}
+            onEdit={handleSaveEdit}
+            loading={savingEdit}
           />
         )}
 
-        {/* Edit product panel */}
-        {currentUser && currentUser.role === 'seller' && editingProduct && (
-          <div
-            style={{
-              padding: '16px',
-              borderRadius: '10px',
-              border: '1px solid #e5e7eb',
-              marginBottom: '24px',
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            }}
-          >
-            <h2 style={{ marginBottom: '8px' }}>
-              Edit Product (ID: {editingProduct.id})
-            </h2>
-            <form onSubmit={handleUpdateProduct}>
-              <div style={{ marginBottom: '8px' }}>
-                <label>
-                  Title:
-                  <input
-                    type="text"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    required
-                    style={{
-                      marginLeft: '8px',
-                      padding: '6px',
-                      borderRadius: '4px',
-                      border: '1px solid #d1d5db',
-                      minWidth: '260px',
-                    }}
-                  />
-                </label>
-              </div>
-
-              <div style={{ marginBottom: '8px' }}>
-                <label>
-                  Description:
-                  <input
-                    type="text"
-                    value={editDescription}
-                    onChange={(e) => setEditDescription(e.target.value)}
-                    style={{
-                      marginLeft: '8px',
-                      padding: '6px',
-                      borderRadius: '4px',
-                      border: '1px solid #d1d5db',
-                      minWidth: '260px',
-                    }}
-                  />
-                </label>
-              </div>
-<div style={{ marginBottom: '8px' }}>
-                <label>
-                  Price:
-                  <input
-                    type="text"
-                    value={editPrice}
-                    onChange={(e) => setEditPrice(e.target.value)}
-                    required
-                    style={{
-                      marginLeft: '8px',
-                      padding: '6px',
-                      borderRadius: '4px',
-                      border: '1px solid #d1d5db',
-                      minWidth: '120px',
-                    }}
-                  />
-                </label>
-              </div>
-
-              <div style={{ marginBottom: '8px' }}>
-                <label>
-                  Image URL:
-                  <input
-                    type="text"
-                    value={editImageUrl}
-                    onChange={(e) => setEditImageUrl(e.target.value)}
-                    style={{
-                      marginLeft: '8px',
-                      padding: '6px',
-                      borderRadius: '4px',
-                      border: '1px solid #d1d5db',
-                      minWidth: '260px',
-                    }}
-                  />
-                </label>
-              </div>
-
-              {editError && (
-                <div style={{ color: 'red', marginBottom: '8px' }}>
-                  {editError}
-                </div>
-              )}
-              {editMessage && (
-                <div style={{ color: 'green', marginBottom: '8px' }}>
-                  {editMessage}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={editLoading}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  backgroundColor: '#2563eb',
-                  color: '#ffffff',
-                  cursor: 'pointer',
-                  marginRight: '8px',
-                }}
-              >
-                {editLoading ? 'Updating...' : 'Save changes'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditingProduct(null)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  border: '1px solid #d1d5db',
-                  backgroundColor: '#ffffff',
-                  color: '#111827',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-            </form>
-          </div>
+        {activeProduct && (
+          <MessagesPanel
+            product={activeProduct}
+            messages={messages}
+            messagesLoading={loadingMessages}
+            messageError={messageError}
+            currentUser={currentUser}
+            onClose={() => setActiveProduct(null)}
+            onSendMessage={handleSendMessage}
+          />
         )}
 
-        {/* Sort bar */}
         <SortBar
           sortOrder={sortOrder}
-          onSortChange={handleSortChange}
-          focusedKeyword={focusedKeyword}
-          onClearKeyword={() => setFocusedKeyword('')}
+          onSortChange={(e) => setSortOrder(e.target.value)}
+          focusedKeyword={focusKeyword}
+          onClearKeyword={clearBoost}
         />
 
-        {/* Messages panel */}
-        <MessagesPanel
-          activeProduct={activeMessageProduct}
-          messages={messages}
-          messagesLoading={messagesLoading}
-          messageError={messageError}
-          currentUser={currentUser}
-          newMessageContent={newMessageContent}
-          setNewMessageContent={setNewMessageContent}
-          onClose={() => {
-            setActiveMessageProduct(null);
-            setMessages([]);
-            setNewMessageContent('');
-            setMessageError('');
-          }}
-          onSend={handleSendMessage}
-        />
-
-        {/* Product list */}
         <ProductList
           products={finalProducts}
-          loading={productsLoading}
-          onFocusKeyword={handleFocusKeyword}
+          loading={loadingProducts}
           currentUser={currentUser}
-          onEditProduct={startEditProduct}
+          onFocusKeyword={handleFocusSimilar}
           onDeleteProduct={handleDeleteProduct}
-          onOpenMessages={openMessagesForProduct}
           onPurchase={handlePurchase}
+          onOpenMessages={handleOpenMessages}
+          onEditProduct={handleEditProduct}
         />
       </div>
-    </div>
+    </main>
   );
 }
-
-export default App;

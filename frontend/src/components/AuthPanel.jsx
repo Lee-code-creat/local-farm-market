@@ -1,61 +1,88 @@
-export default function AuthPanel({
-  mode,
-  setMode,
-  email,
-  setEmail,
-  password,
-  setPassword,
-  role,
-  setRole,
-  authError,
-  authMessage,
-  authLoading,
-  onSubmit,
-}) {
+import { useState } from "react";
+import { API_BASE } from "../api";
+
+/**
+ * Handles login / registration and returns user data to the parent on success.
+ */
+export default function AuthPanel({ onLoginSuccess }) {
+  const [mode, setMode] = useState("login"); // "login" | "register"
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("buyer");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const endpoint = mode === "login" ? "login" : "register";
+
+      const body =
+        mode === "login"
+          ? { email, password }
+          : { email, password, role };
+
+      const res = await fetch(`${API_BASE}/api/${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Authentication failed");
+        return;
+      }
+
+      if (mode === "login") {
+        // Pass user info back to App
+        onLoginSuccess(data);
+      } else {
+        alert("Registration successful! Please log in.");
+        setMode("login");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Network error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div
       style={{
-        padding: '16px',
-        borderRadius: '10px',
-        border: '1px solid #e5e7eb',
-        marginBottom: '32px',
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        padding: "20px",
+        borderRadius: "10px",
+        border: "1px solid #e5e7eb",
+        marginBottom: "24px",
+        backgroundColor: "rgba(255,255,255,0.95)",
       }}
     >
-      <div style={{ marginBottom: '12px' }}>
+      <div style={{ marginBottom: "10px" }}>
         <button
           type="button"
-          onClick={() => setMode('login')}
-          style={{
-            padding: '6px 12px',
-            marginRight: '8px',
-            borderRadius: '6px',
-            border: mode === 'login' ? '2px solid #1f2937' : '1px solid #d1d5db',
-            backgroundColor: mode === 'login' ? '#1f2937' : '#ffffff',
-            color: mode === 'login' ? '#ffffff' : '#111827',
-            cursor: 'pointer',
-          }}
+          onClick={() => setMode("login")}
+          disabled={mode === "login"}
         >
           Login
         </button>
         <button
           type="button"
-          onClick={() => setMode('register')}
-          style={{
-            padding: '6px 12px',
-            borderRadius: '6px',
-            border: mode === 'register' ? '2px solid #1f2937' : '1px solid #d1d5db',
-            backgroundColor: mode === 'register' ? '#1f2937' : '#ffffff',
-            color: mode === 'register' ? '#ffffff' : '#111827',
-            cursor: 'pointer',
-          }}
+          onClick={() => setMode("register")}
+          disabled={mode === "register"}
+          style={{ marginLeft: "8px" }}
         >
           Register
         </button>
       </div>
 
-      <form onSubmit={onSubmit}>
-        <div style={{ marginBottom: '8px' }}>
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: "8px" }}>
           <label>
             Email:
             <input
@@ -63,18 +90,12 @@ export default function AuthPanel({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              style={{
-                marginLeft: '8px',
-                padding: '6px',
-                borderRadius: '4px',
-                border: '1px solid #d1d5db',
-                minWidth: '260px',
-              }}
+              style={{ marginLeft: "8px" }}
             />
           </label>
         </div>
 
-        <div style={{ marginBottom: '8px' }}>
+        <div style={{ marginBottom: "8px" }}>
           <label>
             Password:
             <input
@@ -82,30 +103,19 @@ export default function AuthPanel({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              style={{
-                marginLeft: '8px',
-                padding: '6px',
-                borderRadius: '4px',
-                border: '1px solid #d1d5db',
-                minWidth: '260px',
-              }}
+              style={{ marginLeft: "8px" }}
             />
           </label>
         </div>
 
-        {mode === 'register' && (
-          <div style={{ marginBottom: '8px' }}>
+        {mode === "register" && (
+          <div style={{ marginBottom: "8px" }}>
             <label>
               Role:
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                style={{
-                  marginLeft: '8px',
-                  padding: '6px',
-                  borderRadius: '4px',
-                  border: '1px solid #d1d5db',
-                }}
+                style={{ marginLeft: "8px" }}
               >
                 <option value="buyer">Buyer</option>
                 <option value="seller">Seller</option>
@@ -114,27 +124,12 @@ export default function AuthPanel({
           </div>
         )}
 
-        {authError && (
-          <div style={{ color: 'red', marginBottom: '8px' }}>{authError}</div>
-        )}
-        {authMessage && (
-          <div style={{ color: 'green', marginBottom: '8px' }}>{authMessage}</div>
+        {error && (
+          <div style={{ color: "red", marginBottom: "8px" }}>{error}</div>
         )}
 
-        <button
-          type="submit"
-          disabled={authLoading}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '6px',
-            border: 'none',
-            backgroundColor: '#2563eb',
-            color: '#ffffff',
-            cursor: 'pointer',
-            marginTop: '4px',
-          }}
-        >
-          {authLoading ? 'Processing...' : mode === 'login' ? 'Login' : 'Register'}
+        <button type="submit" disabled={loading}>
+          {loading ? "Processing..." : mode === "login" ? "Login" : "Register"}
         </button>
       </form>
     </div>

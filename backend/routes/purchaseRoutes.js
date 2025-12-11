@@ -1,23 +1,25 @@
-const express = require('express');
-const db = require('../database');
-const { authMiddleware } = require('./authMiddleware');
+const express = require("express");
+const db = require("../database");
+const { authMiddleware } = require("./authMiddleware");
 
 const router = express.Router();
 
-// Buyer clicks "Buy" for a product
-router.post('/', authMiddleware, (req, res) => {
+/**
+ * Buyer clicks "Buy" for a product.
+ */
+router.post("/", authMiddleware, (req, res) => {
   const userId = req.user.userId;
   const userRole = req.user.role;
   const { productId } = req.body;
 
   if (!productId) {
-    return res.status(400).json({ message: 'productId is required' });
+    return res.status(400).json({ message: "productId is required" });
   }
 
-  if (userRole !== 'buyer') {
+  if (userRole !== "buyer") {
     return res
       .status(403)
-      .json({ message: 'Only buyers can purchase products' });
+      .json({ message: "Only buyers can purchase products" });
   }
 
   // Find product and seller
@@ -27,10 +29,10 @@ router.post('/', authMiddleware, (req, res) => {
     (err, product) => {
       if (err) {
         console.error(err);
-        return res.status(500).json({ message: 'Failed to find product' });
+        return res.status(500).json({ message: "Failed to find product" });
       }
       if (!product) {
-        return res.status(404).json({ message: 'Product not found' });
+        return res.status(404).json({ message: "Product not found" });
       }
 
       const sellerId = product.seller_id;
@@ -41,7 +43,9 @@ router.post('/', authMiddleware, (req, res) => {
         function (err2) {
           if (err2) {
             console.error(err2);
-            return res.status(500).json({ message: 'Failed to create purchase' });
+            return res
+              .status(500)
+              .json({ message: "Failed to create purchase" });
           }
 
           // Increase purchase_count on product
@@ -51,12 +55,13 @@ router.post('/', authMiddleware, (req, res) => {
             function (err3) {
               if (err3) {
                 console.error(err3);
-                return res
-                  .status(500)
-                  .json({ message: 'Purchase saved, but failed to update count' });
+                return res.status(500).json({
+                  message:
+                    "Purchase saved, but failed to update purchase count",
+                });
               }
 
-              res.json({ message: 'Purchase successful' });
+              res.json({ message: "Purchase successful" });
             }
           );
         }
